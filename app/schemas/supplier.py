@@ -3,6 +3,8 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
+from app.db.models import SupplierStatus
+
 
 class SupplierBase(BaseModel):
     name: str = Field(min_length=1, max_length=200)
@@ -14,7 +16,7 @@ class SupplierBase(BaseModel):
     tax_id: Optional[str] = Field(default=None, max_length=50)
     bank_name: Optional[str] = Field(default=None, max_length=100)
     bank_account: Optional[str] = Field(default=None, max_length=50)
-    status: str = Field(default="active")
+    status: SupplierStatus = Field(default=SupplierStatus.ACTIVE)
     is_verified: bool = Field(default=False)
     notes: Optional[str] = None
     extra: Optional[dict] = None
@@ -34,7 +36,7 @@ class SupplierUpdate(BaseModel):
     tax_id: Optional[str] = Field(default=None, max_length=50)
     bank_name: Optional[str] = Field(default=None, max_length=100)
     bank_account: Optional[str] = Field(default=None, max_length=50)
-    status: Optional[str] = None
+    status: Optional[SupplierStatus] = None
     is_verified: Optional[bool] = None
     notes: Optional[str] = None
     extra: Optional[dict] = None

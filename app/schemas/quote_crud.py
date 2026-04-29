@@ -3,6 +3,8 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
+from app.db.models import QuoteStatus
+
 
 class QuoteItemBase(BaseModel):
     line_number: int = Field(default=1, ge=1)
@@ -65,7 +67,7 @@ class QuoteBase(BaseModel):
     shipping_fee: float = Field(default=0, ge=0)
     tax_rate: float = Field(default=0, ge=0, le=1)
     discount_amount: float = Field(default=0, ge=0)
-    status: str = Field(default="draft")
+    status: QuoteStatus = Field(default=QuoteStatus.DRAFT)
     valid_from: Optional[datetime] = None
     valid_until: Optional[datetime] = None
     terms: Optional[str] = None
@@ -85,7 +87,7 @@ class QuoteUpdate(BaseModel):
     shipping_fee: Optional[float] = Field(default=None, ge=0)
     tax_rate: Optional[float] = Field(default=None, ge=0, le=1)
     discount_amount: Optional[float] = Field(default=None, ge=0)
-    status: Optional[str] = None
+    status: Optional[QuoteStatus] = None
     valid_from: Optional[datetime] = None
     valid_until: Optional[datetime] = None
     terms: Optional[str] = None

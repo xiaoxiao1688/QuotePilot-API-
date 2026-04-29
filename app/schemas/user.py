@@ -3,12 +3,14 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
+from app.db.models import UserRole
+
 
 class UserBase(BaseModel):
     username: str = Field(min_length=1, max_length=50)
     email: str = Field(min_length=1, max_length=100)
     nickname: Optional[str] = Field(default=None, max_length=50)
-    role: str = Field(default="buyer")
+    role: UserRole = Field(default=UserRole.BUYER)
     company_id: Optional[str] = Field(default=None, max_length=36)
 
 
@@ -19,7 +21,7 @@ class UserCreate(UserBase):
 class UserUpdate(BaseModel):
     email: Optional[str] = Field(default=None, min_length=1, max_length=100)
     nickname: Optional[str] = Field(default=None, max_length=50)
-    role: Optional[str] = None
+    role: Optional[UserRole] = None
     company_id: Optional[str] = None
     is_active: Optional[bool] = None
 

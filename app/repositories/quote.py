@@ -233,27 +233,28 @@ class QuoteRepository:
         session: Session,
         user_id: str | None = None,
     ) -> dict[str, Any]:
-        query = select(Quote)
+        count_query = select(func.count(Quote.id))
+        amount_query = select(func.sum(Quote.grand_total))
+        status_query = select(Quote.status, func.count(Quote.id).label("cnt"))
+        supplier_query = select(Quote.supplier_id, func.count(Quote.id).label("cnt"))
+
         if user_id:
-            query = query.where(Quote.user_id == user_id)
+            count_query = count_query.where(Quote.user_id == user_id)
+            amount_query = amount_query.where(Quote.user_id == user_id)
+            status_query = status_query.where(Quote.user_id == user_id)
+            supplier_query = supplier_query.where(Quote.user_id == user_id)
 
-        total_count = session.scalar(
-            select(func.count()).select_from(query.subquery())
-        ) or 0
-
-        total_amount = session.scalar(
-            select(func.sum(Quote.grand_total)).select_from(query.subquery())
-        ) or 0
-
-        status_query = select(Quote.status, func.count()).select_from(query.subquery())
         status_query = status_query.group_by(Quote.status)
-        status_results = session.execute(status_query).all()
-        by_status = {row[0]: row[1] for row in status_results}
-
-        supplier_query = select(Quote.supplier_id, func.count()).select_from(query.subquery())
         supplier_query = supplier_query.group_by(Quote.supplier_id)
+
+        total_count = session.scalar(count_query) or 0
+        total_amount = session.scalar(amount_query) or 0.0
+
+        status_results = session.execute(status_query).all()
         supplier_results = session.execute(supplier_query).all()
-        by_supplier = {row[0]: row[1] for row in supplier_results}
+
+        by_status = {row.status: row.cnt for row in status_results}
+        by_supplier = {row.supplier_id: row.cnt for row in supplier_results}
 
         return {
             "total_quotes": total_count,

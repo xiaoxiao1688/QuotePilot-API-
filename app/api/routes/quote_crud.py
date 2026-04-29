@@ -1,6 +1,9 @@
+from enum import Enum
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
+from app.db.models import QuoteStatus
 from app.db.session import get_db_session
 from app.repositories.quote import quote_item_repository, quote_repository
 from app.repositories.supplier import supplier_repository
@@ -20,6 +23,14 @@ from app.schemas.quote_crud import (
 )
 
 router = APIRouter()
+
+
+def _enum_value(v: str | Enum | None) -> str | None:
+    if v is None:
+        return None
+    if isinstance(v, Enum):
+        return v.value
+    return v
 
 
 def get_current_user_id() -> str:
@@ -61,7 +72,7 @@ def create_quote(
         shipping_fee=payload.shipping_fee,
         tax_rate=payload.tax_rate,
         discount_amount=payload.discount_amount,
-        status=payload.status,
+        status=_enum_value(payload.status),
         valid_from=payload.valid_from,
         valid_until=payload.valid_until,
         terms=payload.terms,
@@ -81,7 +92,7 @@ def create_quote(
 def list_quotes(
     supplier_id: str | None = Query(default=None),
     user_id: str | None = Query(default=None),
-    status: str | None = Query(default=None),
+    status: QuoteStatus | None = Query(default=None),
     search: str | None = Query(default=None),
     limit: int = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
@@ -91,7 +102,7 @@ def list_quotes(
         session=db,
         supplier_id=supplier_id,
         user_id=user_id,
-        status=status,
+        status=_enum_value(status),
         search=search,
         limit=limit,
         offset=offset,
@@ -142,6 +153,9 @@ def update_quote(
         )
 
     update_data = payload.model_dump(exclude_unset=True)
+
+    if "status" in update_data:
+        update_data["status"] = _enum_value(update_data["status"])
 
     if "supplier_id" in update_data:
         supplier = supplier_repository.get_by_id(db, update_data["supplier_id"])
@@ -195,7 +209,7 @@ def submit_quote(
             detail={"error_code": "QUOTE_NOT_FOUND", "message": "Quote not found"},
         )
 
-    if quote.status != "draft":
+    if quote.status != QuoteStatus.DRAFT.value:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"error_code": "INVALID_STATUS", "message": "Only draft quotes can be submitted"},
@@ -228,7 +242,7 @@ def approve_quote(
             detail={"error_code": "QUOTE_NOT_FOUND", "message": "Quote not found"},
         )
 
-    if quote.status not in ["submitted", "pending"]:
+    if quote.status not in [QuoteStatus.SUBMITTED.value, QuoteStatus.PENDING.value]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"error_code": "INVALID_STATUS", "message": "Only submitted quotes can be approved"},
@@ -261,7 +275,7 @@ def reject_quote(
             detail={"error_code": "QUOTE_NOT_FOUND", "message": "Quote not found"},
         )
 
-    if quote.status not in ["submitted", "pending"]:
+    if quote.status not in [QuoteStatus.SUBMITTED.value, QuoteStatus.PENDING.value]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"error_code": "INVALID_STATUS", "message": "Only submitted quotes can be rejected"},

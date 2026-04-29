@@ -1,6 +1,11 @@
+import hashlib
+import secrets
+from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
+from app.db.models import UserRole
 from app.db.session import get_db_session
 from app.repositories.user import user_repository
 from app.schemas.user import (
@@ -14,6 +19,25 @@ from app.schemas.user import (
 )
 
 router = APIRouter()
+
+
+def _hash_password(password: str, salt: str | None = None) -> tuple[str, str]:
+    if salt is None:
+        salt = secrets.token_hex(16)
+    password_salt = f"{password}{salt}"
+    password_hash = hashlib.sha256(password_salt.encode("utf-8")).hexdigest()
+    return f"sha256:{salt}:{password_hash}", salt
+
+
+def _verify_password(password: str, stored_hash: str) -> bool:
+    if not stored_hash.startswith("sha256:"):
+        return False
+    parts = stored_hash.split(":")
+    if len(parts) != 3:
+        return False
+    _, salt, _ = parts
+    expected_hash, _ = _hash_password(password, salt)
+    return secrets.compare_digest(stored_hash, expected_hash)
 
 
 def get_current_user_id() -> str:
@@ -34,7 +58,7 @@ def create_user(payload: UserCreate, db: Session = Depends(get_db_session)) -> U
             detail={"error_code": "EMAIL_EXISTS", "message": "Email already exists"},
         )
 
-    password_hash = f"hashed_{payload.password}"
+    password_hash, _ = _hash_password(payload.password)
 
     user = user_repository.create(
         session=db,
@@ -42,7 +66,7 @@ def create_user(payload: UserCreate, db: Session = Depends(get_db_session)) -> U
         email=payload.email,
         password_hash=password_hash,
         nickname=payload.nickname,
-        role=payload.role,
+        role=payload.role.value if isinstance(payload.role, UserRole) else payload.role,
         company_id=payload.company_id,
     )
 
@@ -147,14 +171,13 @@ def change_password(
             detail={"error_code": "USER_NOT_FOUND", "message": "User not found"},
         )
 
-    expected_old_hash = f"hashed_{payload.old_password}"
-    if user.password_hash != expected_old_hash:
+    if not _verify_password(payload.old_password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"error_code": "INVALID_PASSWORD", "message": "Current password is incorrect"},
         )
 
-    new_password_hash = f"hashed_{payload.new_password}"
+    new_password_hash, _ = _hash_password(payload.new_password)
     updated_user = user_repository.update(db, user_id, password_hash=new_password_hash)
 
     if not updated_user:
@@ -177,8 +200,7 @@ def login(payload: UserLoginRequest, db: Session = Depends(get_db_session)) -> U
             detail={"error_code": "INVALID_CREDENTIALS", "message": "Invalid username or password"},
         )
 
-    expected_hash = f"hashed_{payload.password}"
-    if user.password_hash != expected_hash:
+    if not _verify_password(payload.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={"error_code": "INVALID_CREDENTIALS", "message": "Invalid username or password"},
@@ -193,7 +215,9 @@ def login(payload: UserLoginRequest, db: Session = Depends(get_db_session)) -> U
     user_repository.update_last_login(db, user.id)
 
     expires_at = datetime.utcnow() + timedelta(hours=24)
-    token = f"token_{user.id}_{int(expires_at.timestamp())}"
+    token_payload = f"{user.id}:{int(expires_at.timestamp())}"
+    token_hash = hashlib.sha256((token_payload + secrets.token_hex(16)).encode("utf-8")).hexdigest()
+    token = f"jwt_{user.id}_{token_hash}"
 
     return UserLoginResponse(
         user=UserResponse.model_validate(user),

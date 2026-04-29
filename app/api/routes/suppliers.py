@@ -1,6 +1,9 @@
+from enum import Enum
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
+from app.db.models import SupplierStatus
 from app.db.session import get_db_session
 from app.repositories.supplier import supplier_repository
 from app.schemas.supplier import (
@@ -12,6 +15,14 @@ from app.schemas.supplier import (
 )
 
 router = APIRouter()
+
+
+def _enum_value(v: str | Enum | None) -> str | None:
+    if v is None:
+        return None
+    if isinstance(v, Enum):
+        return v.value
+    return v
 
 
 def get_current_user_id() -> str:
@@ -40,7 +51,7 @@ def create_supplier(
         tax_id=payload.tax_id,
         bank_name=payload.bank_name,
         bank_account=payload.bank_account,
-        status=payload.status,
+        status=_enum_value(payload.status),
         is_verified=payload.is_verified,
         notes=payload.notes,
         extra=payload.extra,
@@ -52,7 +63,7 @@ def create_supplier(
 
 @router.get("", response_model=SupplierListResponse)
 def list_suppliers(
-    status: str | None = Query(default=None),
+    status: SupplierStatus | None = Query(default=None),
     is_verified: bool | None = Query(default=None),
     search: str | None = Query(default=None),
     created_by: str | None = Query(default=None),
@@ -62,7 +73,7 @@ def list_suppliers(
 ) -> SupplierListResponse:
     total, suppliers = supplier_repository.list(
         session=db,
-        status=status,
+        status=_enum_value(status),
         is_verified=is_verified,
         search=search,
         created_by=created_by,
@@ -101,6 +112,9 @@ def update_supplier(
         )
 
     update_data = payload.model_dump(exclude_unset=True)
+
+    if "status" in update_data:
+        update_data["status"] = _enum_value(update_data["status"])
 
     if "name" in update_data:
         existing = supplier_repository.get_by_name(db, update_data["name"])

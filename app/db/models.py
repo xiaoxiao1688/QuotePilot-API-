@@ -4,7 +4,7 @@ from datetime import datetime
 from enum import Enum
 from uuid import uuid4
 
-from sqlalchemy import DateTime, Float, Integer, JSON, String, Text, func
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, JSON, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -80,6 +80,11 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
+    __table_args__ = (
+        UniqueConstraint("username", name="uq_users_username"),
+        UniqueConstraint("email", name="uq_users_email"),
+    )
+
 
 class SupplierStatus(str, Enum):
     DRAFT = "draft"
@@ -106,9 +111,18 @@ class Supplier(Base):
     is_verified: Mapped[bool] = mapped_column(default=False)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     extra: Mapped[dict | None] = mapped_column(JSON, nullable=True)
-    created_by: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    created_by: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("users.id", name="fk_suppliers_created_by", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("name", name="uq_suppliers_name"),
+    )
 
 
 class QuoteStatus(str, Enum):
@@ -126,8 +140,18 @@ class Quote(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
     quote_number: Mapped[str | None] = mapped_column(String(50), unique=True, nullable=True, index=True)
-    supplier_id: Mapped[str] = mapped_column(String(36), index=True, nullable=False)
-    user_id: Mapped[str] = mapped_column(String(36), index=True, nullable=False)
+    supplier_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("suppliers.id", name="fk_quotes_supplier_id", ondelete="RESTRICT"),
+        index=True,
+        nullable=False,
+    )
+    user_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("users.id", name="fk_quotes_user_id", ondelete="RESTRICT"),
+        index=True,
+        nullable=False,
+    )
     demand_title: Mapped[str] = mapped_column(String(200), index=True)
     currency: Mapped[str] = mapped_column(String(8), default="CNY")
     item_count: Mapped[int] = mapped_column(Integer, default=0)
@@ -150,12 +174,21 @@ class Quote(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
+    __table_args__ = (
+        UniqueConstraint("quote_number", name="uq_quotes_quote_number"),
+    )
+
 
 class QuoteItem(Base):
     __tablename__ = "quote_items"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
-    quote_id: Mapped[str] = mapped_column(String(36), index=True, nullable=False)
+    quote_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("quotes.id", name="fk_quote_items_quote_id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
     line_number: Mapped[int] = mapped_column(Integer, default=1)
     product_name: Mapped[str] = mapped_column(String(200), nullable=False)
     product_code: Mapped[str | None] = mapped_column(String(50), nullable=True, index=True)
@@ -169,4 +202,8 @@ class QuoteItem(Base):
     specs: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("quote_id", "line_number", name="uq_quote_items_quote_line"),
+    )
 
