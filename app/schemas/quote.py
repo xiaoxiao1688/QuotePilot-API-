@@ -94,3 +94,35 @@ class StoredPayloadRecord(BaseModel):
 class QuoteHistoryResponse(BaseModel):
     recent_parses: list[StoredPayloadRecord]
     recent_comparisons: list[StoredPayloadRecord]
+
+
+class UploadResponse(BaseModel):
+    task_id: str
+    file_name: str
+    file_type: str
+    status: str
+    message: str
+
+
+class TaskStatusResponse(BaseModel):
+    task_id: str
+    file_name: str
+    file_type: str
+    status: str
+    error_message: str | None = None
+    parse_result: dict | None = None
+    supplier_name: str | None = None
+    created_at: str
+    updated_at: str
+    completed_at: str | None = None
+
+
+class TaskListResponse(BaseModel):
+    total: int
+    tasks: list[TaskStatusResponse]
+
+
+class ErrorResponse(BaseModel):
+    error_code: str
+    message: str
+    details: dict | None = None
