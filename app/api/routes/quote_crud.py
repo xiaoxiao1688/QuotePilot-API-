@@ -74,8 +74,8 @@ def _get_quote_with_items(db: Session, quote_id: str) -> tuple:
 @router.post("", response_model=QuoteResponse, status_code=status.HTTP_201_CREATED)
 def create_quote(
     payload: QuoteCreate,
-    db: Session = Depends(get_db_session),
     user_ctx: Annotated[UserContext, Depends(require_buyer_or_admin)],
+    db: Session = Depends(get_db_session),
 ) -> QuoteResponse:
     supplier = supplier_repository.get_by_id(db, payload.supplier_id)
     if not supplier:
@@ -113,6 +113,7 @@ def create_quote(
 
 @router.get("", response_model=QuoteListResponse)
 def list_quotes(
+    user_ctx: Annotated[UserContext, require_any_authenticated],
     supplier_id: str | None = Query(default=None),
     user_id: str | None = Query(default=None),
     status: QuoteStatus | None = Query(default=None),
@@ -120,7 +121,6 @@ def list_quotes(
     limit: int = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db_session),
-    user_ctx: Annotated[UserContext, require_any_authenticated],
 ) -> QuoteListResponse:
     filter_user_id = user_id
     if user_id and not user_ctx.is_admin and user_id != user_ctx.user_id:
@@ -160,9 +160,9 @@ def list_quotes(
 
 @router.get("/summary", response_model=QuoteSummaryResponse)
 def get_quotes_summary(
+    user_ctx: Annotated[UserContext, require_any_authenticated],
     user_id: str | None = Query(default=None),
     db: Session = Depends(get_db_session),
-    user_ctx: Annotated[UserContext, require_any_authenticated],
 ) -> QuoteSummaryResponse:
     filter_user_id = user_id
     if user_id and not user_ctx.is_admin and user_id != user_ctx.user_id:
@@ -184,8 +184,8 @@ def get_quotes_summary(
 @router.get("/{quote_id}", response_model=QuoteResponse)
 def get_quote(
     quote_id: str,
-    db: Session = Depends(get_db_session),
     user_ctx: Annotated[UserContext, require_any_authenticated],
+    db: Session = Depends(get_db_session),
 ) -> QuoteResponse:
     quote, items = _get_quote_with_items(db, quote_id)
 
@@ -207,8 +207,8 @@ def get_quote(
 def update_quote(
     quote_id: str,
     payload: QuoteUpdate,
-    db: Session = Depends(get_db_session),
     user_ctx: Annotated[UserContext, require_any_authenticated],
+    db: Session = Depends(get_db_session),
 ) -> QuoteResponse:
     quote = quote_repository.get_by_id(db, quote_id)
     if not quote:
@@ -279,8 +279,8 @@ def update_quote(
 @router.delete("/{quote_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_quote(
     quote_id: str,
-    db: Session = Depends(get_db_session),
     admin_ctx: Annotated[UserContext, Depends(require_admin)],
+    db: Session = Depends(get_db_session),
 ) -> None:
     quote = quote_repository.get_by_id(db, quote_id)
     if not quote:
@@ -303,8 +303,8 @@ def delete_quote(
 def submit_quote(
     quote_id: str,
     payload: QuoteSubmitRequest,
-    db: Session = Depends(get_db_session),
     user_ctx: Annotated[UserContext, Depends(require_buyer_or_admin)],
+    db: Session = Depends(get_db_session),
 ) -> QuoteResponse:
     quote = quote_repository.get_by_id(db, quote_id)
     if not quote:
@@ -349,8 +349,8 @@ def submit_quote(
 def approve_quote(
     quote_id: str,
     payload: QuoteApproveRequest,
-    db: Session = Depends(get_db_session),
     admin_ctx: Annotated[UserContext, Depends(require_admin)],
+    db: Session = Depends(get_db_session),
 ) -> QuoteResponse:
     quote = quote_repository.get_by_id(db, quote_id)
     if not quote:
@@ -386,8 +386,8 @@ def approve_quote(
 def reject_quote(
     quote_id: str,
     payload: QuoteRejectRequest,
-    db: Session = Depends(get_db_session),
     admin_ctx: Annotated[UserContext, Depends(require_admin)],
+    db: Session = Depends(get_db_session),
 ) -> QuoteResponse:
     quote = quote_repository.get_by_id(db, quote_id)
     if not quote:
@@ -423,8 +423,8 @@ def reject_quote(
 def add_quote_item(
     quote_id: str,
     payload: QuoteItemCreate,
-    db: Session = Depends(get_db_session),
     user_ctx: Annotated[UserContext, Depends(require_buyer_or_admin)],
+    db: Session = Depends(get_db_session),
 ) -> QuoteItemResponse:
     quote = quote_repository.get_by_id(db, quote_id)
     if not quote:
@@ -468,8 +468,8 @@ def update_quote_item(
     quote_id: str,
     item_id: str,
     payload: QuoteItemUpdate,
-    db: Session = Depends(get_db_session),
     user_ctx: Annotated[UserContext, Depends(require_buyer_or_admin)],
+    db: Session = Depends(get_db_session),
 ) -> QuoteItemResponse:
     quote = quote_repository.get_by_id(db, quote_id)
     if not quote:
@@ -512,8 +512,8 @@ def update_quote_item(
 def delete_quote_item(
     quote_id: str,
     item_id: str,
-    db: Session = Depends(get_db_session),
     user_ctx: Annotated[UserContext, Depends(require_buyer_or_admin)],
+    db: Session = Depends(get_db_session),
 ) -> None:
     quote = quote_repository.get_by_id(db, quote_id)
     if not quote:

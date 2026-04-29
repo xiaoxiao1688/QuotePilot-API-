@@ -1,9 +1,9 @@
 from typing import Annotated, Optional
 
-from fastapi import Depends, HTTPException, Header, status
+from fastapi import Depends, Header, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.core.jwt import get_user_id_from_token, verify_token
+from app.core.jwt import get_user_id_from_token
 from app.db.models import User, UserRole
 from app.db.session import get_db_session
 from app.repositories.user import user_repository
@@ -42,7 +42,7 @@ class UserContext:
         return self._user
 
     def has_role(self, *roles: UserRole) -> bool:
-        return self._user.role in {r.value for r in roles}
+        return self._user.role in {role.value for role in roles}
 
     def is_owner_or_admin(self, owner_id: str | None) -> bool:
         if self.is_admin:
@@ -56,7 +56,6 @@ def get_user_context(
     authorization: Annotated[Optional[str], Header(alias="Authorization")] = None,
     db: Session = Depends(get_db_session),
 ) -> UserContext:
-    """从 JWT token 获取用户上下文"""
     if not authorization:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -67,7 +66,6 @@ def get_user_context(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # 解析 Bearer token
     if not authorization.startswith("Bearer "):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -78,19 +76,19 @@ def get_user_context(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    token = authorization.split(" ")[1]
+    token = authorization.split(" ", 1)[1]
 
     try:
         user_id = get_user_id_from_token(token)
-    except ValueError as e:
+    except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={
                 "error_code": "INVALID_TOKEN",
-                "message": str(e),
+                "message": str(exc),
             },
             headers={"WWW-Authenticate": "Bearer"},
-        )
+        ) from exc
 
     user = user_repository.get_by_id(db, user_id)
     if not user:
@@ -120,7 +118,7 @@ def require_roles(*required_roles: UserRole):
         user_ctx: UserContext = Depends(get_user_context),
     ) -> UserContext:
         if not user_ctx.has_role(*required_roles):
-            role_names = ", ".join(r.value for r in required_roles)
+            role_names = ", ".join(role.value for role in required_roles)
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail={
@@ -133,16 +131,14 @@ def require_roles(*required_roles: UserRole):
     return role_checker
 
 
-# 常用权限依赖
 require_admin = require_roles(UserRole.ADMIN)
 require_buyer_or_admin = require_roles(UserRole.BUYER, UserRole.ADMIN)
 require_any_authenticated = Depends(get_user_context)
 
-# 统一的获取当前用户方法
+
 def get_current_user(user_ctx: UserContext = Depends(get_user_context)) -> User:
-    """获取当前认证用户"""
     return user_ctx.user
 
+
 def get_current_user_id(user_ctx: UserContext = Depends(get_user_context)) -> str:
-    """获取当前认证用户 ID"""
     return user_ctx.user_id

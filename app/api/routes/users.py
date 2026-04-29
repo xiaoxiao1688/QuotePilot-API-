@@ -50,8 +50,8 @@ def _enum_value(v: str | UserRole | None) -> str | None:
 @router.post("", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 def create_user(
     payload: UserCreate,
-    db: Session = Depends(get_db_session),
     admin_ctx: Annotated[UserContext, Depends(require_admin)],
+    db: Session = Depends(get_db_session),
 ) -> UserResponse:
     if user_repository.exists_by_username(db, payload.username):
         raise HTTPException(
@@ -82,13 +82,13 @@ def create_user(
 
 @router.get("", response_model=UserListResponse)
 def list_users(
+    admin_ctx: Annotated[UserContext, Depends(require_admin)],
     role: UserRole | None = Query(default=None),
     is_active: bool | None = Query(default=None),
     search: str | None = Query(default=None),
     limit: int = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db_session),
-    admin_ctx: Annotated[UserContext, Depends(require_admin)],
 ) -> UserListResponse:
     total, users = user_repository.list(
         session=db,
@@ -108,8 +108,8 @@ def list_users(
 @router.get("/{user_id}", response_model=UserResponse)
 def get_user(
     user_id: str,
-    db: Session = Depends(get_db_session),
     user_ctx: Annotated[UserContext, require_any_authenticated],
+    db: Session = Depends(get_db_session),
 ) -> UserResponse:
     if not user_ctx.is_admin and user_ctx.user_id != user_id:
         raise HTTPException(
@@ -133,8 +133,8 @@ def get_user(
 def update_user(
     user_id: str,
     payload: UserUpdate,
-    db: Session = Depends(get_db_session),
     user_ctx: Annotated[UserContext, require_any_authenticated],
+    db: Session = Depends(get_db_session),
 ) -> UserResponse:
     if not user_ctx.is_admin and user_ctx.user_id != user_id:
         raise HTTPException(
@@ -195,8 +195,8 @@ def update_user(
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_user(
     user_id: str,
-    db: Session = Depends(get_db_session),
     admin_ctx: Annotated[UserContext, Depends(require_admin)],
+    db: Session = Depends(get_db_session),
 ) -> None:
     user = user_repository.get_by_id(db, user_id)
     if not user:
@@ -217,8 +217,8 @@ def delete_user(
 def change_password(
     user_id: str,
     payload: UserPasswordUpdate,
-    db: Session = Depends(get_db_session),
     user_ctx: Annotated[UserContext, require_any_authenticated],
+    db: Session = Depends(get_db_session),
 ) -> UserResponse:
     if user_ctx.user_id != user_id:
         raise HTTPException(

@@ -30,8 +30,8 @@ def _enum_value(v: str | Enum | None) -> str | None:
 @router.post("", response_model=SupplierResponse, status_code=status.HTTP_201_CREATED)
 def create_supplier(
     payload: SupplierCreate,
-    db: Session = Depends(get_db_session),
     user_ctx: Annotated[UserContext, Depends(require_buyer_or_admin)],
+    db: Session = Depends(get_db_session),
 ) -> SupplierResponse:
     if supplier_repository.exists_by_name(db, payload.name):
         raise HTTPException(
@@ -62,6 +62,7 @@ def create_supplier(
 
 @router.get("", response_model=SupplierListResponse)
 def list_suppliers(
+    user_ctx: Annotated[UserContext, require_any_authenticated],
     status: SupplierStatus | None = Query(default=None),
     is_verified: bool | None = Query(default=None),
     search: str | None = Query(default=None),
@@ -69,7 +70,6 @@ def list_suppliers(
     limit: int = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db_session),
-    user_ctx: Annotated[UserContext, require_any_authenticated],
 ) -> SupplierListResponse:
     if created_by and not user_ctx.is_admin and created_by != user_ctx.user_id:
         raise HTTPException(
@@ -99,8 +99,8 @@ def list_suppliers(
 @router.get("/{supplier_id}", response_model=SupplierResponse)
 def get_supplier(
     supplier_id: str,
-    db: Session = Depends(get_db_session),
     user_ctx: Annotated[UserContext, require_any_authenticated],
+    db: Session = Depends(get_db_session),
 ) -> SupplierResponse:
     supplier = supplier_repository.get_by_id(db, supplier_id)
     if not supplier:
@@ -115,8 +115,8 @@ def get_supplier(
 def update_supplier(
     supplier_id: str,
     payload: SupplierUpdate,
-    db: Session = Depends(get_db_session),
     user_ctx: Annotated[UserContext, require_any_authenticated],
+    db: Session = Depends(get_db_session),
 ) -> SupplierResponse:
     supplier = supplier_repository.get_by_id(db, supplier_id)
     if not supplier:
@@ -169,8 +169,8 @@ def update_supplier(
 @router.delete("/{supplier_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_supplier(
     supplier_id: str,
-    db: Session = Depends(get_db_session),
     admin_ctx: Annotated[UserContext, Depends(require_admin)],
+    db: Session = Depends(get_db_session),
 ) -> None:
     supplier = supplier_repository.get_by_id(db, supplier_id)
     if not supplier:
@@ -191,8 +191,8 @@ def delete_supplier(
 def update_supplier_rating(
     supplier_id: str,
     payload: SupplierRatingUpdate,
-    db: Session = Depends(get_db_session),
     admin_ctx: Annotated[UserContext, Depends(require_admin)],
+    db: Session = Depends(get_db_session),
 ) -> SupplierResponse:
     supplier = supplier_repository.get_by_id(db, supplier_id)
     if not supplier:
