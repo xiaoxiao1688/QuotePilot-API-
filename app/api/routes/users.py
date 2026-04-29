@@ -1,18 +1,17 @@
 import hashlib
 import secrets
-from typing import Any
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
+from app.core.security import UserContext, require_admin, require_any_authenticated
 from app.db.models import UserRole
 from app.db.session import get_db_session
 from app.repositories.user import user_repository
 from app.schemas.user import (
     UserCreate,
     UserListResponse,
-    UserLoginRequest,
-    UserLoginResponse,
     UserPasswordUpdate,
     UserResponse,
     UserUpdate,
@@ -40,12 +39,20 @@ def _verify_password(password: str, stored_hash: str) -> bool:
     return secrets.compare_digest(stored_hash, expected_hash)
 
 
-def get_current_user_id() -> str:
-    return "demo-user-001"
+def _enum_value(v: str | UserRole | None) -> str | None:
+    if v is None:
+        return None
+    if isinstance(v, UserRole):
+        return v.value
+    return v
 
 
 @router.post("", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-def create_user(payload: UserCreate, db: Session = Depends(get_db_session)) -> UserResponse:
+def create_user(
+    payload: UserCreate,
+    db: Session = Depends(get_db_session),
+    admin_ctx: Annotated[UserContext, Depends(require_admin)],
+) -> UserResponse:
     if user_repository.exists_by_username(db, payload.username):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -66,7 +73,7 @@ def create_user(payload: UserCreate, db: Session = Depends(get_db_session)) -> U
         email=payload.email,
         password_hash=password_hash,
         nickname=payload.nickname,
-        role=payload.role.value if isinstance(payload.role, UserRole) else payload.role,
+        role=_enum_value(payload.role),
         company_id=payload.company_id,
     )
 
@@ -75,16 +82,17 @@ def create_user(payload: UserCreate, db: Session = Depends(get_db_session)) -> U
 
 @router.get("", response_model=UserListResponse)
 def list_users(
-    role: str | None = Query(default=None),
+    role: UserRole | None = Query(default=None),
     is_active: bool | None = Query(default=None),
     search: str | None = Query(default=None),
     limit: int = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db_session),
+    admin_ctx: Annotated[UserContext, Depends(require_admin)],
 ) -> UserListResponse:
     total, users = user_repository.list(
         session=db,
-        role=role,
+        role=_enum_value(role),
         is_active=is_active,
         search=search,
         limit=limit,
@@ -98,7 +106,20 @@ def list_users(
 
 
 @router.get("/{user_id}", response_model=UserResponse)
-def get_user(user_id: str, db: Session = Depends(get_db_session)) -> UserResponse:
+def get_user(
+    user_id: str,
+    db: Session = Depends(get_db_session),
+    user_ctx: Annotated[UserContext, require_any_authenticated],
+) -> UserResponse:
+    if not user_ctx.is_admin and user_ctx.user_id != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "error_code": "INSUFFICIENT_PERMISSIONS",
+                "message": "You can only access your own user information",
+            },
+        )
+
     user = user_repository.get_by_id(db, user_id)
     if not user:
         raise HTTPException(
@@ -113,7 +134,17 @@ def update_user(
     user_id: str,
     payload: UserUpdate,
     db: Session = Depends(get_db_session),
+    user_ctx: Annotated[UserContext, require_any_authenticated],
 ) -> UserResponse:
+    if not user_ctx.is_admin and user_ctx.user_id != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "error_code": "INSUFFICIENT_PERMISSIONS",
+                "message": "You can only update your own user information",
+            },
+        )
+
     user = user_repository.get_by_id(db, user_id)
     if not user:
         raise HTTPException(
@@ -122,6 +153,26 @@ def update_user(
         )
 
     update_data = payload.model_dump(exclude_unset=True)
+
+    if "role" in update_data:
+        if not user_ctx.is_admin:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "error_code": "INSUFFICIENT_PERMISSIONS",
+                    "message": "Only admin can change user role",
+                },
+            )
+        update_data["role"] = _enum_value(update_data["role"])
+
+    if "is_active" in update_data and not user_ctx.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "error_code": "INSUFFICIENT_PERMISSIONS",
+                "message": "Only admin can change user active status",
+            },
+        )
 
     if "email" in update_data:
         existing = user_repository.get_by_email(db, update_data["email"])
@@ -142,7 +193,11 @@ def update_user(
 
 
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_user(user_id: str, db: Session = Depends(get_db_session)) -> None:
+def delete_user(
+    user_id: str,
+    db: Session = Depends(get_db_session),
+    admin_ctx: Annotated[UserContext, Depends(require_admin)],
+) -> None:
     user = user_repository.get_by_id(db, user_id)
     if not user:
         raise HTTPException(
@@ -163,7 +218,17 @@ def change_password(
     user_id: str,
     payload: UserPasswordUpdate,
     db: Session = Depends(get_db_session),
+    user_ctx: Annotated[UserContext, require_any_authenticated],
 ) -> UserResponse:
+    if user_ctx.user_id != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "error_code": "INSUFFICIENT_PERMISSIONS",
+                "message": "You can only change your own password",
+            },
+        )
+
     user = user_repository.get_by_id(db, user_id)
     if not user:
         raise HTTPException(
@@ -187,40 +252,3 @@ def change_password(
         )
 
     return UserResponse.model_validate(updated_user)
-
-
-@router.post("/login", response_model=UserLoginResponse)
-def login(payload: UserLoginRequest, db: Session = Depends(get_db_session)) -> UserLoginResponse:
-    from datetime import datetime, timedelta
-
-    user = user_repository.get_by_username(db, payload.username)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail={"error_code": "INVALID_CREDENTIALS", "message": "Invalid username or password"},
-        )
-
-    if not _verify_password(payload.password, user.password_hash):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail={"error_code": "INVALID_CREDENTIALS", "message": "Invalid username or password"},
-        )
-
-    if not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail={"error_code": "USER_INACTIVE", "message": "User account is inactive"},
-        )
-
-    user_repository.update_last_login(db, user.id)
-
-    expires_at = datetime.utcnow() + timedelta(hours=24)
-    token_payload = f"{user.id}:{int(expires_at.timestamp())}"
-    token_hash = hashlib.sha256((token_payload + secrets.token_hex(16)).encode("utf-8")).hexdigest()
-    token = f"jwt_{user.id}_{token_hash}"
-
-    return UserLoginResponse(
-        user=UserResponse.model_validate(user),
-        token=token,
-        expires_at=expires_at,
-    )

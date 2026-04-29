@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     allowed_file_types: list[str] = ["image/jpeg", "image/png", "image/gif", "image/bmp", "application/pdf"]
     allowed_extensions: list[str] = [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".pdf"]
     max_file_size_mb: int = 50
+    jwt_secret: str = "your-secret-key-change-in-production"
+    jwt_algorithm: str = "HS256"
+    access_token_expire_minutes: int = 60 * 24
 
     model_config = SettingsConfigDict(
         env_file=".env",

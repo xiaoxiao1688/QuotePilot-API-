@@ -1,8 +1,10 @@
 from enum import Enum
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
+from app.core.security import UserContext, require_admin, require_any_authenticated, require_buyer_or_admin
 from app.db.models import SupplierStatus
 from app.db.session import get_db_session
 from app.repositories.supplier import supplier_repository
@@ -25,14 +27,11 @@ def _enum_value(v: str | Enum | None) -> str | None:
     return v
 
 
-def get_current_user_id() -> str:
-    return "demo-user-001"
-
-
 @router.post("", response_model=SupplierResponse, status_code=status.HTTP_201_CREATED)
 def create_supplier(
     payload: SupplierCreate,
     db: Session = Depends(get_db_session),
+    user_ctx: Annotated[UserContext, Depends(require_buyer_or_admin)],
 ) -> SupplierResponse:
     if supplier_repository.exists_by_name(db, payload.name):
         raise HTTPException(
@@ -55,7 +54,7 @@ def create_supplier(
         is_verified=payload.is_verified,
         notes=payload.notes,
         extra=payload.extra,
-        created_by=get_current_user_id(),
+        created_by=user_ctx.user_id,
     )
 
     return SupplierResponse.model_validate(supplier)
@@ -70,7 +69,17 @@ def list_suppliers(
     limit: int = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db_session),
+    user_ctx: Annotated[UserContext, require_any_authenticated],
 ) -> SupplierListResponse:
+    if created_by and not user_ctx.is_admin and created_by != user_ctx.user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "error_code": "INSUFFICIENT_PERMISSIONS",
+                "message": "You can only filter by your own created_by",
+            },
+        )
+
     total, suppliers = supplier_repository.list(
         session=db,
         status=_enum_value(status),
@@ -88,7 +97,11 @@ def list_suppliers(
 
 
 @router.get("/{supplier_id}", response_model=SupplierResponse)
-def get_supplier(supplier_id: str, db: Session = Depends(get_db_session)) -> SupplierResponse:
+def get_supplier(
+    supplier_id: str,
+    db: Session = Depends(get_db_session),
+    user_ctx: Annotated[UserContext, require_any_authenticated],
+) -> SupplierResponse:
     supplier = supplier_repository.get_by_id(db, supplier_id)
     if not supplier:
         raise HTTPException(
@@ -103,6 +116,7 @@ def update_supplier(
     supplier_id: str,
     payload: SupplierUpdate,
     db: Session = Depends(get_db_session),
+    user_ctx: Annotated[UserContext, require_any_authenticated],
 ) -> SupplierResponse:
     supplier = supplier_repository.get_by_id(db, supplier_id)
     if not supplier:
@@ -111,10 +125,28 @@ def update_supplier(
             detail={"error_code": "SUPPLIER_NOT_FOUND", "message": "Supplier not found"},
         )
 
+    if not user_ctx.is_admin and supplier.created_by != user_ctx.user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "error_code": "INSUFFICIENT_PERMISSIONS",
+                "message": "You can only update suppliers you created",
+            },
+        )
+
     update_data = payload.model_dump(exclude_unset=True)
 
     if "status" in update_data:
         update_data["status"] = _enum_value(update_data["status"])
+
+    if "is_verified" in update_data and not user_ctx.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "error_code": "INSUFFICIENT_PERMISSIONS",
+                "message": "Only admin can verify suppliers",
+            },
+        )
 
     if "name" in update_data:
         existing = supplier_repository.get_by_name(db, update_data["name"])
@@ -135,7 +167,11 @@ def update_supplier(
 
 
 @router.delete("/{supplier_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_supplier(supplier_id: str, db: Session = Depends(get_db_session)) -> None:
+def delete_supplier(
+    supplier_id: str,
+    db: Session = Depends(get_db_session),
+    admin_ctx: Annotated[UserContext, Depends(require_admin)],
+) -> None:
     supplier = supplier_repository.get_by_id(db, supplier_id)
     if not supplier:
         raise HTTPException(
@@ -156,6 +192,7 @@ def update_supplier_rating(
     supplier_id: str,
     payload: SupplierRatingUpdate,
     db: Session = Depends(get_db_session),
+    admin_ctx: Annotated[UserContext, Depends(require_admin)],
 ) -> SupplierResponse:
     supplier = supplier_repository.get_by_id(db, supplier_id)
     if not supplier:
