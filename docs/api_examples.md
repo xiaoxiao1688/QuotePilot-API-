@@ -277,3 +277,489 @@ file: @document.txt
   "details": null
 }
 ```
+
+---
+
+## 用户管理 (Users)
+
+### 创建用户
+
+```http
+POST /api/v1/users
+Content-Type: application/json
+
+{
+  "username": "john_doe",
+  "email": "john@example.com",
+  "password": "SecurePass123",
+  "nickname": "John Doe",
+  "role": "buyer",
+  "company_id": "demo-company-001"
+}
+```
+
+**响应：**
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "username": "john_doe",
+  "email": "john@example.com",
+  "nickname": "John Doe",
+  "role": "buyer",
+  "company_id": "demo-company-001",
+  "is_active": true,
+  "last_login_at": null,
+  "created_at": "2026-04-28T10:30:00",
+  "updated_at": "2026-04-28T10:30:00"
+}
+```
+
+### 用户登录
+
+```http
+POST /api/v1/users/login
+Content-Type: application/json
+
+{
+  "username": "john_doe",
+  "password": "SecurePass123"
+}
+```
+
+**响应：**
+
+```json
+{
+  "user": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "username": "john_doe",
+    "email": "john@example.com",
+    "nickname": "John Doe",
+    "role": "buyer",
+    "company_id": "demo-company-001",
+    "is_active": true,
+    "last_login_at": "2026-04-28T11:00:00",
+    "created_at": "2026-04-28T10:30:00",
+    "updated_at": "2026-04-28T11:00:00"
+  },
+  "token": "token_550e8400-e29b-41d4-a716-446655440000_1744542000",
+  "expires_at": "2026-04-29T11:00:00"
+}
+```
+
+### 获取用户列表
+
+```http
+GET /api/v1/users?role=buyer&limit=20&offset=0
+```
+
+**响应：**
+
+```json
+{
+  "total": 15,
+  "items": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "username": "john_doe",
+      "email": "john@example.com",
+      "nickname": "John Doe",
+      "role": "buyer",
+      "company_id": "demo-company-001",
+      "is_active": true,
+      "last_login_at": "2026-04-28T11:00:00",
+      "created_at": "2026-04-28T10:30:00",
+      "updated_at": "2026-04-28T11:00:00"
+    }
+  ]
+}
+```
+
+### 获取单个用户
+
+```http
+GET /api/v1/users/550e8400-e29b-41d4-a716-446655440000
+```
+
+### 更新用户
+
+```http
+PUT /api/v1/users/550e8400-e29b-41d4-a716-446655440000
+Content-Type: application/json
+
+{
+  "nickname": "John Updated",
+  "email": "john_new@example.com"
+}
+```
+
+### 修改密码
+
+```http
+POST /api/v1/users/550e8400-e29b-41d4-a716-446655440000/change-password
+Content-Type: application/json
+
+{
+  "old_password": "SecurePass123",
+  "new_password": "NewSecurePass456"
+}
+```
+
+### 删除用户
+
+```http
+DELETE /api/v1/users/550e8400-e29b-41d4-a716-446655440000
+```
+
+---
+
+## 供应商管理 (Suppliers)
+
+### 创建供应商
+
+```http
+POST /api/v1/suppliers
+Content-Type: application/json
+
+{
+  "name": "Shenzhen Electronics Co., Ltd.",
+  "short_name": "SZ Electronics",
+  "contact_person": "张先生",
+  "phone": "13800138000",
+  "email": "contact@szelec.com",
+  "address": "广东省深圳市南山区科技园",
+  "tax_id": "91440300MA5D8Y4K8L",
+  "bank_name": "中国工商银行深圳分行",
+  "bank_account": "6222024000001234567",
+  "status": "active",
+  "is_verified": true,
+  "notes": "主要供应商，合作5年"
+}
+```
+
+**响应：**
+
+```json
+{
+  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "name": "Shenzhen Electronics Co., Ltd.",
+  "short_name": "SZ Electronics",
+  "contact_person": "张先生",
+  "phone": "13800138000",
+  "email": "contact@szelec.com",
+  "address": "广东省深圳市南山区科技园",
+  "tax_id": "91440300MA5D8Y4K8L",
+  "bank_name": "中国工商银行深圳分行",
+  "bank_account": "6222024000001234567",
+  "rating": 3.0,
+  "status": "active",
+  "is_verified": true,
+  "notes": "主要供应商，合作5年",
+  "extra": null,
+  "created_by": "demo-user-001",
+  "created_at": "2026-04-28T10:30:00",
+  "updated_at": "2026-04-28T10:30:00"
+}
+```
+
+### 获取供应商列表
+
+```http
+GET /api/v1/suppliers?status=active&limit=20&offset=0
+```
+
+### 获取单个供应商
+
+```http
+GET /api/v1/suppliers/a1b2c3d4-e5f6-7890-abcd-ef1234567890
+```
+
+### 更新供应商
+
+```http
+PUT /api/v1/suppliers/a1b2c3d4-e5f6-7890-abcd-ef1234567890
+Content-Type: application/json
+
+{
+  "phone": "13900139000",
+  "is_verified": true
+}
+```
+
+### 更新供应商评分
+
+```http
+PATCH /api/v1/suppliers/a1b2c3d4-e5f6-7890-abcd-ef1234567890/rating
+Content-Type: application/json
+
+{
+  "rating": 4.5
+}
+```
+
+### 删除供应商
+
+```http
+DELETE /api/v1/suppliers/a1b2c3d4-e5f6-7890-abcd-ef1234567890
+```
+
+---
+
+## 报价单管理 (Quote CRUD)
+
+### 创建报价单
+
+```http
+POST /api/v1/quote-crud
+Content-Type: application/json
+
+{
+  "quote_number": "QT-2026-001",
+  "supplier_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "demand_title": "办公设备采购",
+  "currency": "CNY",
+  "shipping_fee": 50.0,
+  "tax_rate": 0.13,
+  "discount_amount": 100.0,
+  "status": "draft",
+  "terms": "付款方式：预付30%，货到付清余款",
+  "notes": "报价有效期30天",
+  "items": [
+    {
+      "line_number": 1,
+      "product_name": "笔记本电脑支架",
+      "product_code": "LAP-001",
+      "product_category": "办公设备",
+      "quantity": 10,
+      "unit": "pc",
+      "unit_price": 88.0,
+      "currency": "CNY",
+      "lead_time_days": 5,
+      "description": "铝合金材质，可调节高度"
+    },
+    {
+      "line_number": 2,
+      "product_name": "机械键盘",
+      "product_code": "KEY-002",
+      "product_category": "办公设备",
+      "quantity": 10,
+      "unit": "pc",
+      "unit_price": 150.0,
+      "currency": "CNY",
+      "lead_time_days": 3,
+      "description": "青轴，RGB背光"
+    }
+  ]
+}
+```
+
+**响应：**
+
+```json
+{
+  "id": "quote-001-abcdef",
+  "quote_number": "QT-2026-001",
+  "supplier_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "user_id": "demo-user-001",
+  "demand_title": "办公设备采购",
+  "currency": "CNY",
+  "item_count": 2,
+  "sub_total": 2380.0,
+  "shipping_fee": 50.0,
+  "tax_rate": 0.13,
+  "tax_amount": 309.4,
+  "discount_amount": 100.0,
+  "grand_total": 2639.4,
+  "status": "draft",
+  "valid_from": null,
+  "valid_until": null,
+  "terms": "付款方式：预付30%，货到付清余款",
+  "notes": "报价有效期30天",
+  "extra": null,
+  "submitted_at": null,
+  "approved_at": null,
+  "rejected_at": null,
+  "rejected_reason": null,
+  "created_at": "2026-04-28T10:30:00",
+  "updated_at": "2026-04-28T10:30:00",
+  "items": [
+    {
+      "id": "item-001",
+      "quote_id": "quote-001-abcdef",
+      "line_number": 1,
+      "product_name": "笔记本电脑支架",
+      "product_code": "LAP-001",
+      "product_category": "办公设备",
+      "quantity": 10,
+      "unit": "pc",
+      "unit_price": 88.0,
+      "currency": "CNY",
+      "line_total": 880.0,
+      "lead_time_days": 5,
+      "specs": null,
+      "description": "铝合金材质，可调节高度",
+      "created_at": "2026-04-28T10:30:00"
+    },
+    {
+      "id": "item-002",
+      "quote_id": "quote-001-abcdef",
+      "line_number": 2,
+      "product_name": "机械键盘",
+      "product_code": "KEY-002",
+      "product_category": "办公设备",
+      "quantity": 10,
+      "unit": "pc",
+      "unit_price": 150.0,
+      "currency": "CNY",
+      "line_total": 1500.0,
+      "lead_time_days": 3,
+      "specs": null,
+      "description": "青轴，RGB背光",
+      "created_at": "2026-04-28T10:30:00"
+    }
+  ]
+}
+```
+
+### 获取报价单列表
+
+```http
+GET /api/v1/quote-crud?status=draft&limit=20&offset=0
+```
+
+### 获取报价单统计
+
+```http
+GET /api/v1/quote-crud/summary
+```
+
+**响应：**
+
+```json
+{
+  "total_quotes": 15,
+  "total_amount": 45678.50,
+  "by_status": {
+    "draft": 5,
+    "submitted": 3,
+    "approved": 5,
+    "rejected": 2
+  },
+  "by_supplier": {
+    "a1b2c3d4-e5f6-7890-abcd-ef1234567890": 8,
+    "another-supplier-id": 7
+  }
+}
+```
+
+### 获取单个报价单
+
+```http
+GET /api/v1/quote-crud/quote-001-abcdef
+```
+
+### 更新报价单
+
+```http
+PUT /api/v1/quote-crud/quote-001-abcdef
+Content-Type: application/json
+
+{
+  "shipping_fee": 30.0,
+  "notes": "更新备注信息"
+}
+```
+
+### 提交报价单
+
+```http
+POST /api/v1/quote-crud/quote-001-abcdef/submit
+Content-Type: application/json
+
+{}
+```
+
+### 审批报价单
+
+```http
+POST /api/v1/quote-crud/quote-001-abcdef/approve
+Content-Type: application/json
+
+{
+  "notes": "价格合理，同意审批"
+}
+```
+
+### 拒绝报价单
+
+```http
+POST /api/v1/quote-crud/quote-001-abcdef/reject
+Content-Type: application/json
+
+{
+  "reason": "价格过高，超出预算范围"
+}
+```
+
+### 添加报价单明细
+
+```http
+POST /api/v1/quote-crud/quote-001-abcdef/items
+Content-Type: application/json
+
+{
+  "line_number": 3,
+  "product_name": "无线鼠标",
+  "product_code": "MOU-003",
+  "product_category": "办公设备",
+  "quantity": 10,
+  "unit": "pc",
+  "unit_price": 45.0,
+  "currency": "CNY",
+  "lead_time_days": 2,
+  "description": "蓝牙5.0，静音按键"
+}
+```
+
+### 更新报价单明细
+
+```http
+PUT /api/v1/quote-crud/quote-001-abcdef/items/item-001
+Content-Type: application/json
+
+{
+  "unit_price": 85.0,
+  "quantity": 15
+}
+```
+
+### 删除报价单明细
+
+```http
+DELETE /api/v1/quote-crud/quote-001-abcdef/items/item-001
+```
+
+### 删除报价单
+
+```http
+DELETE /api/v1/quote-crud/quote-001-abcdef
+```
+
+---
+
+## 新增错误码
+
+| 错误码 | HTTP 状态码 | 说明 |
+|--------|-------------|------|
+| `USERNAME_EXISTS` | 409 | 用户名已存在 |
+| `EMAIL_EXISTS` | 409 | 邮箱已存在 |
+| `USER_NOT_FOUND` | 404 | 用户不存在 |
+| `INVALID_CREDENTIALS` | 401 | 用户名或密码错误 |
+| `USER_INACTIVE` | 403 | 用户账户已停用 |
+| `INVALID_PASSWORD` | 400 | 密码错误 |
+| `SUPPLIER_EXISTS` | 409 | 供应商名称已存在 |
+| `SUPPLIER_NOT_FOUND` | 404 | 供应商不存在 |
+| `QUOTE_NOT_FOUND` | 404 | 报价单不存在 |
+| `ITEM_NOT_FOUND` | 404 | 报价单明细不存在 |
+| `INVALID_STATUS` | 400 | 状态无效（如重复提交、审批非草稿状态的报价单） |
