@@ -8,6 +8,7 @@ from app.api.routes.quote_crud import router as quote_crud_router
 from app.api.routes.suppliers import router as suppliers_router
 from app.api.routes.substitute_material import router as substitute_material_router
 from app.api.routes.supplier_certificate import router as supplier_certificate_router
+from app.api.routes.transport_evaluation import router as transport_evaluation_router
 from app.api.routes.upload import router as upload_router
 from app.api.routes.users import router as users_router
 
@@ -22,3 +23,4 @@ api_router.include_router(suppliers_router, prefix="/suppliers", tags=["supplier
 api_router.include_router(quote_crud_router, prefix="/quote-crud", tags=["quote-crud"])
 api_router.include_router(substitute_material_router, prefix="/substitute-materials", tags=["substitute-materials"])
 api_router.include_router(supplier_certificate_router, prefix="/supplier-certificates", tags=["supplier-certificates"])
+api_router.include_router(transport_evaluation_router, prefix="/transport-evaluation", tags=["transport-evaluation"])

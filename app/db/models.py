@@ -373,3 +373,160 @@ class CertificateAlert(Base):
     read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
+
+class ShockProofLevel(str, Enum):
+    LEVEL_1 = "level_1"
+    LEVEL_2 = "level_2"
+    LEVEL_3 = "level_3"
+    LEVEL_4 = "level_4"
+    LEVEL_5 = "level_5"
+
+
+class PackagingMethod(str, Enum):
+    CARTON = "carton"
+    WOODEN_CASE = "wooden_case"
+    PLASTIC_BOX = "plastic_box"
+    PALLET = "pallet"
+    FOAM = "foam"
+    BUBBLE_WRAP = "bubble_wrap"
+    CUSTOM = "custom"
+
+
+class TransportMode(str, Enum):
+    ROAD = "road"
+    SEA = "sea"
+    AIR = "air"
+    RAIL = "rail"
+
+
+class RiskLevel(str, Enum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
+
+
+class SensitiveMaterial(Base):
+    __tablename__ = "sensitive_materials"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    material_code: Mapped[str] = mapped_column(String(50), unique=True, index=True, nullable=False)
+    material_name: Mapped[str] = mapped_column(String(200), index=True, nullable=False)
+    min_temp: Mapped[float | None] = mapped_column(Float, nullable=True)
+    max_temp: Mapped[float | None] = mapped_column(Float, nullable=True)
+    min_humidity: Mapped[float | None] = mapped_column(Float, nullable=True)
+    max_humidity: Mapped[float | None] = mapped_column(Float, nullable=True)
+    shock_proof_level: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    shelf_life_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    extra: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_by: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("users.id", name="fk_sensitive_materials_created_by", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("material_code", name="uq_sensitive_materials_material_code"),
+    )
+
+
+class SupplierPackagingCapability(Base):
+    __tablename__ = "supplier_packaging_capabilities"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    supplier_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("suppliers.id", name="fk_packaging_cap_supplier_id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+    packaging_method: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    has_desiccant: Mapped[bool] = mapped_column(default=False)
+    has_vacuum_pack: Mapped[bool] = mapped_column(default=False)
+    has_cold_chain: Mapped[bool] = mapped_column(default=False)
+    cold_chain_min_temp: Mapped[float | None] = mapped_column(Float, nullable=True)
+    cold_chain_max_temp: Mapped[float | None] = mapped_column(Float, nullable=True)
+    packaging_material: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    extra: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_by: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("users.id", name="fk_packaging_cap_created_by", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+
+class TransportEnvironmentRisk(Base):
+    __tablename__ = "transport_environment_risks"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    route_name: Mapped[str] = mapped_column(String(200), index=True, nullable=False)
+    origin: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    destination: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    transport_mode: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    estimated_duration_hours: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    avg_temp: Mapped[float | None] = mapped_column(Float, nullable=True)
+    temp_variation: Mapped[float | None] = mapped_column(Float, nullable=True)
+    avg_humidity: Mapped[float | None] = mapped_column(Float, nullable=True)
+    weather_risk_level: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    road_condition_risk: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    extra: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_by: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("users.id", name="fk_transport_risk_created_by", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+
+class AdaptationEvaluation(Base):
+    __tablename__ = "adaptation_evaluations"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    evaluation_no: Mapped[str] = mapped_column(String(50), unique=True, index=True, nullable=False)
+    material_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("sensitive_materials.id", name="fk_evaluation_material_id", ondelete="RESTRICT"),
+        index=True,
+        nullable=False,
+    )
+    supplier_packaging_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("supplier_packaging_capabilities.id", name="fk_evaluation_packaging_id", ondelete="RESTRICT"),
+        index=True,
+        nullable=False,
+    )
+    transport_risk_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("transport_environment_risks.id", name="fk_evaluation_transport_risk_id", ondelete="SET NULL"),
+        index=True,
+        nullable=True,
+    )
+    risk_level: Mapped[str] = mapped_column(String(20), index=True, nullable=False)
+    risk_score: Mapped[float] = mapped_column(Float, nullable=False)
+    issues: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+    suggestions: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+    evaluator_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("users.id", name="fk_evaluation_evaluator_id", ondelete="SET NULL"),
+        index=True,
+        nullable=True,
+    )
+    evaluated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("evaluation_no", name="uq_adaptation_evaluations_evaluation_no"),
+    )
+
