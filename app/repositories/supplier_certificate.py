@@ -74,52 +74,70 @@ class SupplierCertificateRepository:
         self,
         session: Session,
         certificate: SupplierCertificate,
-    ) -> int:
+    ) -> tuple[int, int, int]:
         """
-        同步单个证书的预警记录：
+        同步单个证书的预警记录（每次都执行，确保数据一致）：
         - valid 状态：删除所有预警
-        - expiring 状态：确保有一个 expiring 预警，删除 expired 预警
-        - expired 状态：确保有一个 expired 预警，删除 expiring 预警
+        - expiring 状态：
+          - 删除 expired 类型预警
+          - 检查 expiring 预警：有则更新（alert_days + message），无则创建
+        - expired 状态：
+          - 删除 expiring 类型预警
+          - 检查 expired 预警：有则更新（alert_days + message），无则创建
+        
+        返回: (删除数量, 更新数量, 创建数量)
         """
         alert_repo = CertificateAlertRepository()
+        deleted_count = 0
+        updated_count = 0
         created_count = 0
 
         status = get_certificate_status(certificate.valid_until)
         days_remaining = calculate_days_remaining(certificate.valid_until)
 
         if status == CertificateStatus.VALID.value:
-            alert_repo.delete_by_certificate_id(session, certificate.id)
-            return 0
+            deleted_count = alert_repo.delete_by_certificate_id(session, certificate.id)
+            return (deleted_count, 0, 0)
 
         existing_alerts = alert_repo.get_by_certificate_id(session, certificate.id)
 
         if status == CertificateStatus.EXPIRING.value:
-            alert_repo.delete_by_type(session, certificate.id, ALERT_TYPE_EXPIRED)
-            has_expiring_alert = any(
-                a.alert_type == ALERT_TYPE_EXPIRING for a in existing_alerts
+            deleted_count = alert_repo.delete_by_type(session, certificate.id, ALERT_TYPE_EXPIRED)
+            
+            existing_expiring = next(
+                (a for a in existing_alerts if a.alert_type == ALERT_TYPE_EXPIRING),
+                None
             )
-            if not has_expiring_alert:
+            
+            if existing_expiring:
+                new_message = build_alert_message(certificate, ALERT_TYPE_EXPIRING, days_remaining)
+                if existing_expiring.alert_days != days_remaining or existing_expiring.message != new_message:
+                    alert_repo.update_alert(session, existing_expiring.id, days_remaining, new_message)
+                    updated_count = 1
+            else:
                 message = build_alert_message(certificate, ALERT_TYPE_EXPIRING, days_remaining)
-                alert_repo.create_no_commit(
-                    session, certificate.id, ALERT_TYPE_EXPIRING, days_remaining, message
-                )
+                alert_repo.create(session, certificate.id, ALERT_TYPE_EXPIRING, days_remaining, message)
                 created_count = 1
-            session.commit()
 
         elif status == CertificateStatus.EXPIRED.value:
-            alert_repo.delete_by_type(session, certificate.id, ALERT_TYPE_EXPIRING)
-            has_expired_alert = any(
-                a.alert_type == ALERT_TYPE_EXPIRED for a in existing_alerts
+            deleted_count = alert_repo.delete_by_type(session, certificate.id, ALERT_TYPE_EXPIRING)
+            
+            existing_expired = next(
+                (a for a in existing_alerts if a.alert_type == ALERT_TYPE_EXPIRED),
+                None
             )
-            if not has_expired_alert:
+            
+            if existing_expired:
+                new_message = build_alert_message(certificate, ALERT_TYPE_EXPIRED, days_remaining)
+                if existing_expired.alert_days != days_remaining or existing_expired.message != new_message:
+                    alert_repo.update_alert(session, existing_expired.id, days_remaining, new_message)
+                    updated_count = 1
+            else:
                 message = build_alert_message(certificate, ALERT_TYPE_EXPIRED, days_remaining)
-                alert_repo.create_no_commit(
-                    session, certificate.id, ALERT_TYPE_EXPIRED, days_remaining, message
-                )
+                alert_repo.create(session, certificate.id, ALERT_TYPE_EXPIRED, days_remaining, message)
                 created_count = 1
-            session.commit()
 
-        return created_count
+        return (deleted_count, updated_count, created_count)
 
     def create(
         self,
@@ -201,7 +219,7 @@ class SupplierCertificateRepository:
         session.commit()
         session.refresh(certificate)
 
-        if "valid_until" in kwargs and kwargs["valid_until"] != old_valid_until:
+        if "valid_until" in kwargs:
             self._sync_alerts_for_certificate(session, certificate)
 
         return certificate
@@ -220,13 +238,11 @@ class SupplierCertificateRepository:
         if not certificate:
             return None
 
-        old_status = certificate.status
         certificate.status = get_certificate_status(certificate.valid_until)
         session.commit()
         session.refresh(certificate)
 
-        if old_status != certificate.status:
-            self._sync_alerts_for_certificate(session, certificate)
+        self._sync_alerts_for_certificate(session, certificate)
 
         return certificate
 
@@ -242,8 +258,9 @@ class SupplierCertificateRepository:
             new_status = get_certificate_status(cert.valid_until)
             if new_status != old_status:
                 cert.status = new_status
-                self._sync_alerts_for_certificate(session, cert)
                 updated_count += 1
+            
+            self._sync_alerts_for_certificate(session, cert)
 
         return updated_count
 
@@ -419,6 +436,18 @@ class CertificateAlertRepository:
         query = query.order_by(desc(CertificateAlert.created_at))
         return list(session.scalars(query).all())
 
+    def get_by_certificate_and_type(
+        self, session: Session, certificate_id: str, alert_type: str
+    ) -> CertificateAlert | None:
+        return session.scalar(
+            select(CertificateAlert).where(
+                and_(
+                    CertificateAlert.certificate_id == certificate_id,
+                    CertificateAlert.alert_type == alert_type,
+                )
+            )
+        )
+
     def delete_by_certificate_id(self, session: Session, certificate_id: str) -> int:
         query = select(CertificateAlert).where(CertificateAlert.certificate_id == certificate_id)
         alerts = session.scalars(query).all()
@@ -441,6 +470,22 @@ class CertificateAlertRepository:
             session.delete(alert)
         session.commit()
         return count
+
+    def update_alert(
+        self,
+        session: Session,
+        alert_id: str,
+        alert_days: int,
+        message: str,
+    ) -> CertificateAlert | None:
+        alert = self.get_by_id(session, alert_id)
+        if not alert:
+            return None
+        alert.alert_days = alert_days
+        alert.message = message
+        session.commit()
+        session.refresh(alert)
+        return alert
 
     def create(
         self,

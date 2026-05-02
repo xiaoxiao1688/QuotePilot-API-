@@ -1135,7 +1135,7 @@ Authorization: Bearer <token>
 ### 查询供应商证书列表
 
 ```http
-GET /api/v1/supplier-certificates?supplier_id=supplier-id-001&status=valid&limit=20&offset=0
+GET /api/v1/supplier-certificates?supplier_id=supplier-id-001&limit=20&offset=0
 Authorization: Bearer <token>
 ```
 
@@ -1147,6 +1147,73 @@ Authorization: Bearer <token>
 - `created_by` (可选): 创建者 ID
 - `limit` (可选): 返回数量限制，默认 50，最大 100
 - `offset` (可选): 偏移量，默认 0
+
+**响应示例：**
+
+```json
+{
+  "total": 3,
+  "items": [
+    {
+      "id": "cert-id-001",
+      "supplier_id": "supplier-id-001",
+      "certificate_type": "iso_9001",
+      "certificate_no": "CN-2023-ISO-12345",
+      "issuing_authority": "中国质量认证中心",
+      "issue_date": "2023-06-15T00:00:00",
+      "valid_from": "2023-06-15T00:00:00",
+      "valid_until": "2026-06-14T23:59:59",
+      "scope": "电子元器件的设计、生产和销售",
+      "status": "valid",
+      "is_renewed": false,
+      "renewed_from_id": null,
+      "created_by": "user-id-001",
+      "notes": "证书有效期三年",
+      "extra": null,
+      "created_at": "2026-05-02T10:00:00",
+      "updated_at": "2026-05-02T10:00:00"
+    },
+    {
+      "id": "cert-id-002",
+      "supplier_id": "supplier-id-001",
+      "certificate_type": "rohs",
+      "certificate_no": "ROHS-2023-67890",
+      "issuing_authority": "第三方检测机构",
+      "issue_date": "2023-08-20T00:00:00",
+      "valid_from": "2023-08-20T00:00:00",
+      "valid_until": "2026-05-20T23:59:59",
+      "scope": "电子元器件有害物质检测",
+      "status": "expiring",
+      "is_renewed": false,
+      "renewed_from_id": null,
+      "created_by": "user-id-001",
+      "notes": "即将过期，需提醒供应商续期",
+      "extra": null,
+      "created_at": "2026-05-02T10:00:00",
+      "updated_at": "2026-05-02T10:00:00"
+    },
+    {
+      "id": "cert-id-003",
+      "supplier_id": "supplier-id-001",
+      "certificate_type": "ce",
+      "certificate_no": "CE-2023-EXP-001",
+      "issuing_authority": "欧盟认证机构",
+      "issue_date": "2023-05-01T00:00:00",
+      "valid_from": "2023-05-01T00:00:00",
+      "valid_until": "2026-04-30T23:59:59",
+      "scope": "电子产品CE认证",
+      "status": "expired",
+      "is_renewed": false,
+      "renewed_from_id": null,
+      "created_by": "user-id-001",
+      "notes": "已过期，需要供应商重新提供",
+      "extra": null,
+      "created_at": "2026-05-02T10:00:00",
+      "updated_at": "2026-05-02T10:00:00"
+    }
+  ]
+}
+```
 
 ### 查询即将过期证书
 
@@ -1295,6 +1362,60 @@ Authorization: Bearer <token>
 - `limit` (可选): 返回数量限制，默认 50，最大 100
 - `offset` (可选): 偏移量，默认 0
 
+**响应示例：**
+
+```json
+{
+  "total": 3,
+  "items": [
+    {
+      "id": "alert-id-001",
+      "certificate_id": "cert-id-002",
+      "supplier_id": "supplier-id-001",
+      "alert_type": "expiring",
+      "message": "证书 [RoHS] 编号 [ROHS-2023-67890] 将于 18 天后过期",
+      "days_remaining": 18,
+      "is_read": false,
+      "created_at": "2026-05-02T10:00:00",
+      "updated_at": "2026-05-02T10:00:00",
+      "certificate": {
+        "id": "cert-id-002",
+        "supplier_id": "supplier-id-001",
+        "certificate_type": "rohs",
+        "certificate_no": "ROHS-2023-67890",
+        "valid_until": "2026-05-20T23:59:59",
+        "status": "expiring"
+      }
+    },
+    {
+      "id": "alert-id-002",
+      "certificate_id": "cert-id-003",
+      "supplier_id": "supplier-id-002",
+      "alert_type": "expired",
+      "message": "证书 [CE] 编号 [CE-2023-EXP-999] 已过期 5 天",
+      "days_remaining": -5,
+      "is_read": false,
+      "created_at": "2026-05-01T00:00:00",
+      "updated_at": "2026-05-06T10:00:00",
+      "certificate": {
+        "id": "cert-id-003",
+        "supplier_id": "supplier-id-002",
+        "certificate_type": "ce",
+        "certificate_no": "CE-2023-EXP-999",
+        "valid_until": "2026-05-01T23:59:59",
+        "status": "expired"
+      }
+    }
+  ]
+}
+```
+
+**预警类型说明：**
+| 类型值 | 说明 |
+|--------|------|
+| `expiring` | 即将过期（有效期不足 30 天） |
+| `expired` | 已过期（当前日期超过有效期） |
+
 ### 标记预警已读/未读
 
 ```http
@@ -1306,6 +1427,25 @@ Authorization: Bearer <token>
   "is_read": true
 }
 ```
+
+**响应示例（标记已读）：**
+
+```json
+{
+  "id": "alert-id-001",
+  "certificate_id": "cert-id-002",
+  "supplier_id": "supplier-id-001",
+  "alert_type": "expiring",
+  "message": "证书 [RoHS] 编号 [ROHS-2023-67890] 将于 18 天后过期",
+  "days_remaining": 18,
+  "is_read": true,
+  "created_at": "2026-05-02T10:00:00",
+  "updated_at": "2026-05-03T09:15:00"
+}
+```
+
+**请求体参数：**
+- `is_read`: `true` 标记已读，`false` 标记未读
 
 ---
 
