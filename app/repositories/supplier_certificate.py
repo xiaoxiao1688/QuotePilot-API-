@@ -247,9 +247,7 @@ class SupplierCertificateRepository:
         return certificate
 
     def refresh_all_certificate_statuses(self, session: Session) -> int:
-        query = select(SupplierCertificate).where(
-            SupplierCertificate.status != CertificateStatus.EXPIRED.value
-        )
+        query = select(SupplierCertificate)
         certificates = session.scalars(query).all()
 
         updated_count = 0
@@ -436,18 +434,6 @@ class CertificateAlertRepository:
         query = query.order_by(desc(CertificateAlert.created_at))
         return list(session.scalars(query).all())
 
-    def get_by_certificate_and_type(
-        self, session: Session, certificate_id: str, alert_type: str
-    ) -> CertificateAlert | None:
-        return session.scalar(
-            select(CertificateAlert).where(
-                and_(
-                    CertificateAlert.certificate_id == certificate_id,
-                    CertificateAlert.alert_type == alert_type,
-                )
-            )
-        )
-
     def delete_by_certificate_id(self, session: Session, certificate_id: str) -> int:
         query = select(CertificateAlert).where(CertificateAlert.certificate_id == certificate_id)
         alerts = session.scalars(query).all()
@@ -505,24 +491,6 @@ class CertificateAlertRepository:
         session.add(alert)
         session.commit()
         session.refresh(alert)
-        return alert
-
-    def create_no_commit(
-        self,
-        session: Session,
-        certificate_id: str,
-        alert_type: str,
-        alert_days: int,
-        message: str,
-    ) -> CertificateAlert:
-        alert = CertificateAlert(
-            certificate_id=certificate_id,
-            alert_type=alert_type,
-            alert_days=alert_days,
-            message=message,
-            is_read=False,
-        )
-        session.add(alert)
         return alert
 
     def mark_as_read(

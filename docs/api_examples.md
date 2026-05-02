@@ -1365,49 +1365,30 @@ Authorization: Bearer <token>
 **响应示例：**
 
 ```json
-{
-  "total": 3,
-  "items": [
-    {
-      "id": "alert-id-001",
-      "certificate_id": "cert-id-002",
-      "supplier_id": "supplier-id-001",
-      "alert_type": "expiring",
-      "message": "证书 [RoHS] 编号 [ROHS-2023-67890] 将于 18 天后过期",
-      "days_remaining": 18,
-      "is_read": false,
-      "created_at": "2026-05-02T10:00:00",
-      "updated_at": "2026-05-02T10:00:00",
-      "certificate": {
-        "id": "cert-id-002",
-        "supplier_id": "supplier-id-001",
-        "certificate_type": "rohs",
-        "certificate_no": "ROHS-2023-67890",
-        "valid_until": "2026-05-20T23:59:59",
-        "status": "expiring"
-      }
-    },
-    {
-      "id": "alert-id-002",
-      "certificate_id": "cert-id-003",
-      "supplier_id": "supplier-id-002",
-      "alert_type": "expired",
-      "message": "证书 [CE] 编号 [CE-2023-EXP-999] 已过期 5 天",
-      "days_remaining": -5,
-      "is_read": false,
-      "created_at": "2026-05-01T00:00:00",
-      "updated_at": "2026-05-06T10:00:00",
-      "certificate": {
-        "id": "cert-id-003",
-        "supplier_id": "supplier-id-002",
-        "certificate_type": "ce",
-        "certificate_no": "CE-2023-EXP-999",
-        "valid_until": "2026-05-01T23:59:59",
-        "status": "expired"
-      }
-    }
-  ]
-}
+[
+  {
+    "id": "alert-id-001",
+    "certificate_id": "cert-id-002",
+    "alert_type": "expiring",
+    "alert_days": 18,
+    "message": "证书 [ROHS] 编号 [ROHS-2023-67890] 将于 18 天后过期",
+    "is_read": false,
+    "read_by": null,
+    "read_at": null,
+    "created_at": "2026-05-02T10:00:00"
+  },
+  {
+    "id": "alert-id-002",
+    "certificate_id": "cert-id-003",
+    "alert_type": "expired",
+    "alert_days": -5,
+    "message": "证书 [CE] 编号 [CE-2023-EXP-999] 已过期 5 天",
+    "is_read": false,
+    "read_by": null,
+    "read_at": null,
+    "created_at": "2026-05-01T00:00:00"
+  }
+]
 ```
 
 **预警类型说明：**
@@ -1434,13 +1415,29 @@ Authorization: Bearer <token>
 {
   "id": "alert-id-001",
   "certificate_id": "cert-id-002",
-  "supplier_id": "supplier-id-001",
   "alert_type": "expiring",
-  "message": "证书 [RoHS] 编号 [ROHS-2023-67890] 将于 18 天后过期",
-  "days_remaining": 18,
+  "alert_days": 18,
+  "message": "证书 [ROHS] 编号 [ROHS-2023-67890] 将于 18 天后过期",
   "is_read": true,
-  "created_at": "2026-05-02T10:00:00",
-  "updated_at": "2026-05-03T09:15:00"
+  "read_by": "admin-user-id",
+  "read_at": "2026-05-03T09:15:00",
+  "created_at": "2026-05-02T10:00:00"
+}
+```
+
+**响应示例（标记未读）：**
+
+```json
+{
+  "id": "alert-id-001",
+  "certificate_id": "cert-id-002",
+  "alert_type": "expiring",
+  "alert_days": 18,
+  "message": "证书 [ROHS] 编号 [ROHS-2023-67890] 将于 18 天后过期",
+  "is_read": false,
+  "read_by": null,
+  "read_at": null,
+  "created_at": "2026-05-02T10:00:00"
 }
 ```
 
