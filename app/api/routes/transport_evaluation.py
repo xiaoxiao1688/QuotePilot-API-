@@ -6,7 +6,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.security import UserContext, require_any_authenticated, require_buyer_or_admin
-from app.db.models import RiskLevel
+from app.db.models import RiskLevel, TransportMode
+from app.repositories.supplier import supplier_repository
 from app.db.session import get_db_session
 from app.repositories.transport_evaluation import (
     adaptation_evaluation_repository,
@@ -317,6 +318,13 @@ def create_packaging_capability(
     user_ctx: Annotated[UserContext, Depends(require_buyer_or_admin)],
     db: Session = Depends(get_db_session),
 ) -> SupplierPackagingCapabilityResponse:
+    supplier = supplier_repository.get_by_id(db, payload.supplier_id)
+    if not supplier:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error_code": "SUPPLIER_NOT_FOUND", "message": "Supplier not found"},
+        )
+
     existing = supplier_packaging_repository.get_by_supplier_id(db, payload.supplier_id)
     if existing:
         raise HTTPException(
@@ -406,6 +414,12 @@ def update_packaging_capability(
         update_data["packaging_method"] = _enum_value(update_data["packaging_method"])
 
     if "supplier_id" in update_data:
+        supplier = supplier_repository.get_by_id(db, update_data["supplier_id"])
+        if not supplier:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"error_code": "SUPPLIER_NOT_FOUND", "message": "Supplier not found"},
+            )
         existing = supplier_packaging_repository.get_by_supplier_id(db, update_data["supplier_id"])
         if existing and existing.id != capability_id:
             raise HTTPException(
